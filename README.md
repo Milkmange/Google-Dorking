@@ -1,5 +1,10 @@
 # Google Dorking Tool
 
+<p align="center">
+  <img src="https://github.com/thexM0G/thexM0G/blob/main/image_2024-10-29_223741508.png" alt="H4CK_N4S4 " />
+</p>
+
+
 A Python tool to automate Google Dorking, helping cybersecurity professionals uncover sensitive information through advanced search queries. The tool supports a wide range of Google dorks for targeting specific data types like login pages, configuration files, and more, including GitHub and SQL injection-specific dorks.
 
 ## Features
@@ -7,6 +12,7 @@ A Python tool to automate Google Dorking, helping cybersecurity professionals un
 - Automatic result parsing using BeautifulSoup and Selenium.
 - Option to save search results to a custom file.
 - User-friendly with a colorful command-line interface.
+- you can add your own dork in to the tool fully customizable 
 
 ## Requirements
 - **Python 3.8+**.
