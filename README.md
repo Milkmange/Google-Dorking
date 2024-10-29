@@ -16,8 +16,17 @@ A Python tool to automate Google Dorking, helping cybersecurity professionals un
 
 ## Usage
 - **Clone the repository:**
- ```bash
+```bash
 git clone https://github.com/your-username/google-dorking-tool.git
 cd google-dorking-tool
+```
 
+- **Install dependencies:**
+  ```bash
+  pip install -r requirements.txt
+  ```
 
+  - **Run The Tool**
+    ```bash
+    python googledork.py <site-url>
+    
