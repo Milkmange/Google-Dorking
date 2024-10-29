@@ -23,7 +23,7 @@ A Python tool to automate Google Dorking, helping cybersecurity professionals un
 ## Usage
 - **Clone the repository:**
 ```bash
-git clone https://github.com/your-username/google-dorking-tool.git
+git clone https://github.com/thexM0G/Google-Dorking
 cd google-dorking-tool
 ```
 
