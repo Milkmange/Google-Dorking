@@ -1,5 +1,5 @@
 requests
-bs4 (BeautifulSoup)
+bs4 
 selenium
 colorama
 webdriver-manager
