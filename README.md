@@ -1,7 +1,7 @@
 # Google Dorking Tool
 
 <p align="center">
-  <img src="https://github.com/thexM0G/thexM0G/blob/main/image_2024-10-29_223741508.png" alt="H4CK_N4S4 " />
+  <img src="https://github.com/thexM0G/thexM0G/blob/main/googledork.png" alt="H4CK_N4S4 " />
 </p>
 
 
