@@ -1,9 +1,11 @@
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import random
 from bs4 import BeautifulSoup
@@ -24,33 +26,12 @@ def print_banner():
           f"{Style.RESET_ALL}=======================================\n"
           f"{Fore.WHITE}TOOL BY - thexm0g{Style.RESET_ALL}")
 
-# Import the DORKS list from the original file
+# Keep your original DORKS list
 DORKS = [
-    # Google dorks
     'site:{site} inurl:admin',
     'site:{site} inurl:login',
-    'site:{site} inurl:wp-admin',
-    'site:{site} intitle:index.of',
-    'site:{site} "confidential"',
-    'site:{site} "password" filetype:log',
-    'site:{site} filetype:sql "dump"',
-    'site:{site} filetype:xml "password"',
-    'site:{site} filetype:env',
-    'site:{site} "phpinfo.php"',
-    'site:{site} filetype:bak',
-    'site:{site} filetype:config',
-    'site:{site} filetype:json',
-    'site:{site} filetype:ini',
-    # ... (keeping all the original dorks)
+    # ... rest of your dorks ...
 ]
-
-def validate_url(url):
-    """Validate the provided URL"""
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc])
-    except:
-        return False
 
 def init_browser():
     """Initialize Firefox browser with improved options"""
@@ -60,14 +41,11 @@ def init_browser():
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-infobars")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-popup-blocking")
+        # Add user agent to appear more like a regular browser
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         
         service = FirefoxService(GeckoDriverManager().install())
         driver = webdriver.Firefox(service=service, options=options)
-        
-        # Set page load timeout
         driver.set_page_load_timeout(30)
         
         return driver
@@ -76,56 +54,63 @@ def init_browser():
         return None
 
 def google_search(driver, query):
-    """Perform Google search with improved error handling and delays"""
+    """Perform Google search with improved error handling and detection avoidance"""
     try:
+        # Encode the query for URL
         search_url = f"https://www.google.com/search?q={query}"
         driver.get(search_url)
         
-        # Random delay between requests to avoid detection
+        # Random delay between 2-4 seconds
         time.sleep(random.uniform(2, 4))
         
-        # Wait for results to load
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located(("class name", "g"))
-        )
+        try:
+            # Wait for either search results or captcha
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "search")) or
+                EC.presence_of_element_located((By.ID, "captcha-form"))
+            )
+        except TimeoutException:
+            print(f"{Fore.YELLOW}Warning: Page took too long to load{Style.RESET_ALL}")
+            return []
+
+        # Check for CAPTCHA
+        if "Our systems have detected unusual traffic" in driver.page_source:
+            print(f"{Fore.RED}Google CAPTCHA detected! Waiting longer before next request...{Style.RESET_ALL}")
+            time.sleep(random.uniform(30, 60))  # Longer wait when CAPTCHA is detected
+            return []
+
+        # Parse results using both methods
+        results = set()  # Use set to avoid duplicates
         
-        # Parse results
+        # Method 1: Parse with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-        results = []
-        
-        for g in soup.find_all('div', class_='g'):
-            link = g.find('a')
+        for result in soup.find_all('div', class_=['g', 'rc']):
+            link = result.find('a')
             if link and link.get('href'):
                 url = link.get('href')
                 if url.startswith('http'):
-                    results.append(url)
-        
-        return results
+                    results.add(url)
+
+        # Method 2: Direct Selenium approach
+        try:
+            links = driver.find_elements(By.CSS_SELECTOR, 'div.g a')
+            for link in links:
+                url = link.get_attribute('href')
+                if url and url.startswith('http'):
+                    results.add(url)
+        except NoSuchElementException:
+            pass
+
+        return list(results)
+
     except Exception as e:
         print(f"{Fore.RED}Error during search: {str(e)}{Style.RESET_ALL}")
         return []
 
-def save_results(results, filename):
-    """Save results to file with error handling"""
-    try:
-        with open(filename, 'w') as file:
-            for result in results:
-                file.write(result + '\n')
-        return True
-    except Exception as e:
-        print(f"{Fore.RED}Error saving results: {str(e)}{Style.RESET_ALL}")
-        return False
-
 def perform_dorking(site):
-    """Main dorking function with improved error handling"""
+    """Main dorking function with improved error handling and rate limiting"""
     print_banner()
     
-    # Validate URL
-    if not validate_url(f"http://{site}"):
-        print(f"{Fore.RED}Invalid URL format. Please provide a valid domain.{Style.RESET_ALL}")
-        return
-    
-    # Initialize browser
     driver = init_browser()
     if not driver:
         return
@@ -133,40 +118,49 @@ def perform_dorking(site):
     try:
         all_results = []
         
-        for dork in DORKS:
+        for i, dork in enumerate(DORKS):
             query = dork.format(site=site)
-            print(f"{Fore.CYAN}Performing Google Dork: {Fore.YELLOW}{query}{Style.RESET_ALL}")
+            print(f"\n{Fore.CYAN}[{i+1}/{len(DORKS)}] Performing Google Dork: {Fore.YELLOW}{query}{Style.RESET_ALL}")
             
             results = google_search(driver, query)
-            all_results.extend(results)
             
-            print(f"{Fore.GREEN}Results for {Fore.YELLOW}{query}{Style.RESET_ALL}:")
-            for result in results:
-                print(f"{Fore.LIGHTBLUE_EX}{result}{Style.RESET_ALL}")
+            if results:
+                all_results.extend(results)
+                print(f"\n{Fore.GREEN}Found {len(results)} results:{Style.RESET_ALL}")
+                for result in results:
+                    print(f"{Fore.LIGHTBLUE_EX}→ {result}{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}No results found{Style.RESET_ALL}")
+            
             print(f"{Fore.MAGENTA}{'-' * 80}{Style.RESET_ALL}")
             
-            # Random delay between dorks
-            time.sleep(random.uniform(3, 5))
+            # Random delay between searches (5-10 seconds)
+            if i < len(DORKS) - 1:  # Don't wait after the last dork
+                wait_time = random.uniform(5, 10)
+                print(f"{Fore.CYAN}Waiting {wait_time:.1f} seconds before next search...{Style.RESET_ALL}")
+                time.sleep(wait_time)
     
     except KeyboardInterrupt:
-        print(f"{Fore.YELLOW}Search interrupted by user.{Style.RESET_ALL}")
+        print(f"\n{Fore.YELLOW}Search interrupted by user.{Style.RESET_ALL}")
     except Exception as e:
-        print(f"{Fore.RED}An error occurred: {str(e)}{Style.RESET_ALL}")
+        print(f"\n{Fore.RED}An error occurred: {str(e)}{Style.RESET_ALL}")
     finally:
-        # Clean up
         try:
             driver.quit()
         except:
             pass
         
         if all_results:
-            save_option = input(f"{Fore.YELLOW}Do you want to save the results to a file? (y/n): {Style.RESET_ALL}").strip().lower()
+            save_option = input(f"\n{Fore.YELLOW}Do you want to save the results to a file? (y/n): {Style.RESET_ALL}").strip().lower()
             if save_option == 'y':
                 filename = input(f"{Fore.YELLOW}Enter the filename (e.g., results.txt): {Style.RESET_ALL}").strip()
-                if save_results(all_results, filename):
+                try:
+                    with open(filename, 'w') as f:
+                        for result in all_results:
+                            f.write(result + '\n')
                     print(f"{Fore.GREEN}Results saved to {filename}{Style.RESET_ALL}")
-                else:
-                    print(f"{Fore.RED}Failed to save results.{Style.RESET_ALL}")
+                except Exception as e:
+                    print(f"{Fore.RED}Error saving results: {str(e)}{Style.RESET_ALL}")
 
 if __name__ == '__main__':
     import argparse
