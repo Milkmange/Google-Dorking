@@ -1,16 +1,14 @@
 from selenium import webdriver
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.firefox import GeckoDriverManager
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, WebDriverException
+import chromedriver_autoinstaller
 import time
 import random
 from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
-import undetected_chromedriver as uc
 from fake_useragent import UserAgent
 
 # Initialize colorama
@@ -28,10 +26,15 @@ def print_banner():
           f"{Fore.WHITE}TOOL BY - thexm0g{Style.RESET_ALL}")
 
 def init_browser():
-    """Initialize undetected-chromedriver"""
+    """Initialize Chrome browser with proper version"""
     try:
-        options = uc.ChromeOptions()
+        # Automatically install the correct chromedriver version
+        chromedriver_autoinstaller.install()
+        
+        options = webdriver.ChromeOptions()
         options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         
         # Use random user agent
         ua = UserAgent()
@@ -39,14 +42,17 @@ def init_browser():
         
         # Additional stealth settings
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--no-sandbox')
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
         
-        driver = uc.Chrome(options=options)
+        service = Service()
+        driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
+        
         return driver
     except Exception as e:
         print(f"{Fore.RED}Error initializing browser: {str(e)}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Try updating Chrome to the latest version or run: pip install --upgrade chromedriver-autoinstaller{Style.RESET_ALL}")
         return None
 
 def google_search(driver, query):
@@ -74,8 +80,8 @@ def google_search(driver, query):
         
         # Method 1: Parse citation links
         for cite in soup.find_all('cite'):
-            if cite.text.startswith(('http', 'www')):
-                results.append(cite.text)
+            if cite.text.strip().startswith(('http', 'www')):
+                results.append(cite.text.strip())
                 
         # Method 2: Parse regular result links
         for div in soup.find_all('div', class_='yuRUbf'):
@@ -86,7 +92,9 @@ def google_search(driver, query):
         return list(set(results))  # Remove duplicates
         
     except TimeoutException:
-        print(f"{Fore.YELLOW}Warning: Page load timeout{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Warning: Page took too long to load{Style.RESET_ALL}")
+    except WebDriverException as e:
+        print(f"{Fore.RED}Browser error: {str(e)}{Style.RESET_ALL}")
     except Exception as e:
         print(f"{Fore.RED}Error during search: {str(e)}{Style.RESET_ALL}")
     
@@ -104,7 +112,7 @@ def perform_dorking(site):
         
         for i, dork in enumerate(DORKS, 1):
             query = dork.format(site=site)
-            print(f"\n{Fore.CYAN}[{i}/{total_dorks}] Trying: {query}{Style.RESET_ALL}")
+            print(f"\n{Fore.CYAN}[{i}/{total_dorks}] Performing Google Dork: {query}{Style.RESET_ALL}")
             
             results = google_search(driver, query)
             
@@ -118,14 +126,15 @@ def perform_dorking(site):
             
             # Add longer random delay between searches
             if i < total_dorks:
-                wait_time = random.uniform(10, 20)
-                print(f"\n{Fore.CYAN}Waiting {wait_time:.1f} seconds...{Style.RESET_ALL}")
+                wait_time = random.uniform(8, 15)
+                print(f"\n{Fore.CYAN}Waiting {wait_time:.1f} seconds before next search...{Style.RESET_ALL}")
                 time.sleep(wait_time)
                 
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}Search interrupted by user{Style.RESET_ALL}")
     finally:
-        driver.quit()
+        if driver:
+            driver.quit()
         
         if all_results:
             save = input(f"\n{Fore.YELLOW}Save results to file? (y/n): {Style.RESET_ALL}").lower()
